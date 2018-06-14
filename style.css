@@ -1,5 +1,5 @@
-* { 
-  padding:0; 
+* {
+  padding:0;
   margin: 0;
 }
 
@@ -82,7 +82,7 @@ a:hover{
   background-size: 200px;
 }
 
-[data-status="failed"] .game-failed, 
+[data-status="failed"] .game-failed,
 [data-status="success"] .game-success,
 [data-status="all-success"] .game-all-success {
   display: block;
@@ -90,5 +90,3 @@ a:hover{
   background: url(./img/bg-end.png) no-repeat 380px 190px;
   background-size: 250px;
 }
-
-
