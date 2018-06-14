@@ -2,7 +2,39 @@
 var container = document.getElementById('game');
 // 动画对象
 var enemyANimation;
-var bulletAnimation;
+// 等级
+var level;
+// 得分
+var score;
+/**
+* 游戏相关配置
+* @type {Object}
+*/
+var CONFIG = {
+  status: 'start', // 游戏开始默认为开始中
+  level: 1, // 游戏默认等级
+  totalLevel: 6, // 总共6关
+  numPerLine: 7, // 游戏默认每行多少个怪兽
+  canvasPadding: 30, // 默认画布的间隔
+  bulletSize: 10, // 默认子弹长度
+  bulletSpeed: 10, // 默认子弹的移动速度
+  enemySpeed: 2, // 默认敌人移动距离
+  enemySize: 50, // 默认敌人的尺寸
+  enemyGap: 10,  // 默认敌人之间的间距
+  enemyIcon: 'img/enemy.png', // 怪兽的图像
+  enemyBoomIcon: 'img/boom.png', // 怪兽死亡的图像
+  enemyDirection: 'right', // 默认敌人一开始往右移动
+  enemyArea: {
+    width: 640,
+    height: 440
+  }, // 怪物移动区域
+  planeSpeed: 5, // 默认飞机每一步移动的距离
+  planeSize: {
+    width: 60,
+    height: 100
+  }, // 默认飞机的尺寸,
+  planeIcon: './img/plane.png',
+};
 /**
  * 整个游戏对象
  */
@@ -22,6 +54,13 @@ var GAME = {
     document.addEventListener('click',function(event) {
       var target = event.target;
       if(target.classList.contains('js-replay') || target.classList.contains('js-play')) {
+        level = 1;
+        score = 0;
+        self.play();
+      }else if(target.classList.contains('js-next')) {
+        if(GAMEUI.level < CONFIG.totalLevel) {
+          level++;
+        }
         self.play();
       }
     })
@@ -32,6 +71,7 @@ var GAME = {
           case 32:  // 开火
             fire();
             break;
+          // 老师的演示版 飞机的移动流畅 是怎么实现的呢？
           case 37:  // 飞机左动
             GAMEUI.planeX -= CONFIG.planeSpeed;
             break;
@@ -62,8 +102,14 @@ var GAME = {
   },
   failed: function() {
     this.setStatus('failed');
-    var score = document.querySelector('.score');
-    score.innerText = GAMEUI.score;
+    var scoreNode = document.querySelector('.score');
+    scoreNode.innerText = score;
+    this.gameFinish();
+  },
+  success: function() {
+    this.setStatus('success');
+    var levelNode = document.querySelector('.game-next-level');
+    levelNode.innerText = "下一个Level: " + (level + 1);
     this.gameFinish();
   },
   allSuccess: function() {
@@ -75,53 +121,26 @@ var GAME = {
     GAMEUI.clearUI();
   }
 };
-
 var canvas = document.getElementById('canvas');
 var context = canvas.getContext('2d');
-
-/**
-* 游戏相关配置
-* @type {Object}
-*/
-var CONFIG = {
-  status: 'start', // 游戏开始默认为开始中
-  level: 1, // 游戏默认等级
-  totalLevel: 6, // 总共6关
-  numPerLine: 7, // 游戏默认每行多少个怪兽
-  canvasPadding: 30, // 默认画布的间隔
-  bulletSize: 10, // 默认子弹长度
-  bulletSpeed: 10, // 默认子弹的移动速度
-  enemySpeed: 2, // 默认敌人移动距离
-  enemySize: 50, // 默认敌人的尺寸
-  enemyGap: 10,  // 默认敌人之间的间距
-  enemyIcon: 'img/enemy.png', // 怪兽的图像
-  enemyBoomIcon: 'img/boom.png', // 怪兽死亡的图像
-  enemyDirection: 'right', // 默认敌人一开始往右移动
-  enemyArea: {
-    width: 640,
-    height: 440
-  }, // 怪物移动区域
-  planeSpeed: 5, // 默认飞机每一步移动的距离
-  planeSize: {
-    width: 60,
-    height: 100
-  }, // 默认飞机的尺寸,
-  planeIcon: './img/plane.png',
-};
-
 var GAMEUI = {
   init: function() {
+    // Level
+    this.level = level;
     // 怪物运行起点
     this.x = CONFIG.canvasPadding;
     this.y = this.x;
     // 保存怪物坐标，存活状态。boomIndex -- 为了绘制3帧死亡后显示的图片
     this.enemyArr = [];
-    for(var i = 0; i < CONFIG.numPerLine; i++) {
-      this.enemyArr[i] = {
-        x: 0,
-        y: 0,
-        isAlive: 1,
-        boomIndex: 0
+    for(var i = 0; i < this.level; i++) {
+      this.enemyArr[i] = [];
+      for (var j = 0; j < CONFIG.numPerLine; j++) {
+        this.enemyArr[i][j] = {
+          x: 0,
+          y: 0,
+          isAlive: 1,
+          boomIndex: 0
+        }
       }
     }
     // 怪物运动方向
@@ -157,17 +176,21 @@ var GAMEUI = {
     var x = this.x;
     var y = this.y;
     var size = CONFIG.enemySize;
-    this.enemyArr.forEach(function(item, index) {
-      if(item.isAlive) {
-        context.drawImage(GAMEUI.enemy, x, y, size, size);
-        item.x = x;
-        item.y = y;
-      }else if(item.boomIndex && item.boomIndex <= 3) { // 绘制3帧死亡图像
-        context.drawImage(GAMEUI.enemyBoom, x, y, size, size);
-        item.boomIndex++;
-      }
-      x += 60;
-    })
+    for(var i = 0; i < level; i++) {
+      this.enemyArr[i].forEach(function(item) {
+        if(item.isAlive) {
+          context.drawImage(GAMEUI.enemy, x, y, size, size);
+          item.x = x;
+          item.y = y;
+        }else if(item.boomIndex && item.boomIndex <= 3) { // 绘制3帧死亡图像
+          context.drawImage(GAMEUI.enemyBoom, x, y, size, size);
+          item.boomIndex++;
+        }
+        x += 60;
+      })
+      x = this.x;
+      y += 50;
+    }
   },
   drawPlane: function() {
     var plane = this.plane;
@@ -182,42 +205,53 @@ var GAMEUI = {
     context.fillRect(x, y, 1, 10);
   },
   move: function() {
-    var survivors = 0; // 怪物存活数
+    var allSurvivors = 0; // 所有存活怪物数
+    var lineSurvivors = 0; // 怪物存活数
     var len = this.enemyArr.length;
-    var i = 0;
-    var j = len - 1;
-    for(; i < len; i++) {  // 检查每行占位数量
-      if(this.enemyArr[i].isAlive) {
-        for(; j >= 0; j--) {
-          if(this.enemyArr[j].isAlive) {
-            console.log(j + 1 - i);
-            survivors = (j + 1) - i;
-            break;
+    var lenDeep = CONFIG.numPerLine;
+    var level,left,right,floor;
+    for(var x = 0; x < len; x++) {
+      for(var i = 0; i < lenDeep; i++) {  // 检查每行占位数量
+        if(this.enemyArr[x][i].isAlive) {
+          for(var j = lenDeep - 1; j >= 0; j--) {
+            if(this.enemyArr[x][j].isAlive) {
+              allSurvivors++;
+              if(j + 1 - i > lineSurvivors) {
+                lineSurvivors = j + 1 - i;
+                level = x;
+                left = i;
+                right = j;
+              }
+              break;
+            }
           }
+          floor = x;
+          break;
         }
-        break;
       }
     }
     // 如果没有怪物存活或者怪物到达底部 游戏失败
-    if(!survivors) {
-      console.log('failed');
-      GAME.allSuccess();
-      return true;
+    if(this.level === CONFIG.totalLevel && !allSurvivors) {
+        GAME.allSuccess();
+        return true;
+    }else if(!allSurvivors) {
+        GAME.success();
+        return true;
     }
-    if(this.y > CONFIG.enemyArea.height + CONFIG.canvasPadding){
+    if(this.enemyArr[floor][left].y > CONFIG.enemyArea.height + CONFIG.canvasPadding) {
       GAME.failed();
       return true;
     }
     // 怪物移动CONFIG.enemySpeed距离
     if(this.enemyDirection === 'right') {
       this.x += CONFIG.enemySpeed;
-      if(this.enemyArr[j].x + 50 + 30 > canvas.width) {
+      if(this.enemyArr[level][right].x + 50 + 30 > canvas.width) {
         this.y += CONFIG.enemySize;
         this.enemyDirection = 'left';
       }
     }else {
       this.x -= CONFIG.enemySpeed;
-      if(this.enemyArr[i].x < 30) {
+      if(this.enemyArr[level][left].x < 30) {
         this.y += CONFIG.enemySize;
         this.enemyDirection = 'right';
       }
@@ -227,7 +261,7 @@ var GAMEUI = {
     context.clearRect(0, 0, canvas.width, canvas.height);
   },
   scored: function() {  // 得分
-    context.fillText('分数：' + this.score, 20, 20, 75, 30);
+    context.fillText('分数：' + score, 20, 20, 75, 30);
   }
 }
 /**
@@ -236,28 +270,30 @@ var GAMEUI = {
  * @return 如果碰撞返回真
  */
 function checkBullet(x, y) {
-  GAMEUI.enemyArr.forEach(function(item) {
-    if(item.isAlive && item.x + 50 > x && item.x < x && item.y + 50 >= y && item.y <= y) {
-      item.isAlive = 0; // 当前怪物死亡
-      item.boomIndex = 1; // 开始绘制3帧死亡图像
-      GAMEUI.score++; // 得分
-      return true;
-    }
-  })
+  for (var i = 0; i < this.level; i++) {
+    GAMEUI.enemyArr[i].forEach(function(item) {
+      if(item.isAlive && item.x + 50 > x && item.x < x && item.y + 50 > y && item.y < y) {
+        item.isAlive = 0; // 当前怪物死亡
+        item.boomIndex = 1; // 开始绘制3帧死亡图像
+        score += 1; // 得分
+        cancelAnimationFrame(ani);
+      }
+    })
+  }
 }
 // 开火子弹运行动画
 function fire() {
   var x = GAMEUI.planeX + 29;
   var y = GAMEUI.planeY - 10;
   function bulletAnimation() {
-    var ani = requestAnimationFrame(bulletAnimation);
+    ani = requestAnimationFrame(bulletAnimation);
     // 如果子弹击中怪物、子弹超出界面或者游戏失败就清除动画
-    if(checkBullet(x, y) || !y || GAME.status === 'failed' || GAME.status === 'all-success') {
+    if(checkBullet(x, y) || !y || GAME.status === 'failed' || GAME.status === 'all-success' || GAME.status === 'success') {
       cancelAnimationFrame(ani);
     }else {
       GAMEUI.drawBullet(x, y);
+      y -= CONFIG.bulletSpeed;
     }
-    y -= CONFIG.bulletSpeed;
   }
   bulletAnimation();
 }
@@ -268,6 +304,7 @@ function animate() {
   if(!GAMEUI.move()) {
     GAMEUI.scored();
     GAMEUI.drawEnemy();
+    // GAMEUI.levelF();
     GAMEUI.drawPlane();
   }
 }
