@@ -8,9 +8,9 @@ var bulletAnimation;
  */
 var GAME = {
   /**
-   * 初始化函数,这个函数只执行一次
+   * 初始化函数
    * @param  {object} opts
-   * @return {[type]}      [description]
+   * @return {[type]} [description]
    */
   init: function(opts) {
     this.status = 'start';
@@ -18,16 +18,27 @@ var GAME = {
   },
   bindEvent: function() {
     var self = this;
-    var playBtn = document.querySelector('.js-play');
-    // 开始游戏按钮绑定
-    playBtn.onclick = function() {
-      self.play();
-    }
     // 重新开始
     document.addEventListener('click',function(event) {
       var target = event.target;
-      if(target.classList.contains('js-replay')) {
+      if(target.classList.contains('js-replay') || target.classList.contains('js-play')) {
         self.play();
+      }
+    })
+    document.addEventListener('keydown', function(event) {
+      if(GAME.status === 'playing') {
+        var code = event.keyCode;
+        switch (code) {
+          case 32:  // 开火
+            fire();
+            break;
+          case 37:  // 飞机左动
+            GAMEUI.planeX -= CONFIG.planeSpeed;
+            break;
+          case 39:  // 飞机右动
+            GAMEUI.planeX += CONFIG.planeSpeed;
+            break;
+        }
       }
     })
   },
@@ -61,7 +72,6 @@ var GAME = {
   },
   gameFinish: function() {
     cancelAnimationFrame(enemyAnimation);
-    // cancelAnimationFrame(bulletAnimation);
     GAMEUI.clearUI();
   }
 };
@@ -138,12 +148,10 @@ var GAMEUI = {
     this.enemyBoom.onload = function() {
       console.log('load');
     }
-    // 绘制分数
+    // 绘制分数样式
     this.score = 0;
     context.font = "18px sans-serif";
     context.fillStyle = '#fff';
-    // 子弹
-    this.bulletArr = [];
   },
   drawEnemy: function() {
     var x = this.x;
@@ -174,13 +182,16 @@ var GAMEUI = {
     context.fillRect(x, y, 1, 10);
   },
   move: function() {
-    var survivor = 0; // 怪物存活数
+    var survivors = 0; // 怪物存活数
     var len = this.enemyArr.length;
-    for(var i = 0; i < len; i++) {  // 检查每行占位数量
+    var i = 0;
+    var j = len - 1;
+    for(; i < len; i++) {  // 检查每行占位数量
       if(this.enemyArr[i].isAlive) {
-        for(var j = len - 1; j >= 0; j--) {
+        for(; j >= 0; j--) {
           if(this.enemyArr[j].isAlive) {
-            survivor = (j + 1) - i;
+            console.log(j + 1 - i);
+            survivors = (j + 1) - i;
             break;
           }
         }
@@ -188,7 +199,8 @@ var GAMEUI = {
       }
     }
     // 如果没有怪物存活或者怪物到达底部 游戏失败
-    if(!survivor) {
+    if(!survivors) {
+      console.log('failed');
       GAME.allSuccess();
       return true;
     }
@@ -200,14 +212,12 @@ var GAMEUI = {
     if(this.enemyDirection === 'right') {
       this.x += CONFIG.enemySpeed;
       if(this.enemyArr[j].x + 50 + 30 > canvas.width) {
-        console.log(this.y);
         this.y += CONFIG.enemySize;
         this.enemyDirection = 'left';
       }
     }else {
       this.x -= CONFIG.enemySpeed;
       if(this.enemyArr[i].x < 30) {
-        console.log(this.y);
         this.y += CONFIG.enemySize;
         this.enemyDirection = 'right';
       }
@@ -219,55 +229,6 @@ var GAMEUI = {
   scored: function() {  // 得分
     context.fillText('分数：' + this.score, 20, 20, 75, 30);
   }
-}
-
-// 开火子弹轨迹动画
-var fires = {
-  init: function() {
-    this.bulletX = GAMEUI.planeX + 29;
-    this.bulletY = GAMEUI.planeY - 10;
-  },
-  animate: function (bulletX, bulletY) {
-    // 清除子弹
-    if(bulletY < GAMEUI.planeY - 10) {
-      context.clearRect(bulletX, bulletY + 10, 1, 10);
-    }
-    // 失败时返回空
-    if(GAME.status === 'failed') {
-      console.log('work');
-      cancelAnimationFrame(bulletAnimation);
-      return '';
-    }
-    // 绘制子弹
-    context.fillStyle = '#fff';
-    context.fillRect(bulletX, bulletY, 1, 10);
-    // 检测子弹是否打到怪物
-    GAMEUI.enemyArr.forEach(function(item, index) {
-      if(item.isAlive && item.x + 50 > bulletX && item.x < bulletX && item.y + 50 >= bulletY && item.y <= bulletY) {
-        item.isAlive = 0; // 当前怪物死亡
-        item.boomIndex = 1; // 开始绘制3帧死亡图像
-        GAMEUI.score++;
-      }
-    })
-    if(bulletY > -10) { // 子弹上行
-      bulletY -= 10;
-      // requestAnimationFrame(animate);
-    }
-  }
-}
-// 子弹运行动画
-function fireAnimation() {
-  requestAnimationFrame(fireAnimation);
-  GAMEUI.bulletArr.forEach(function(item, index) {
-    var x = item.bulletX;
-    var y = item.bulletY;
-    GAMEUI.drawBullet(x, y);
-    if(checkBullet(x, y) || !y) {
-      cancelAnimationFrame(bulletAnimation);
-      // GAMEUI.bulletArr.splice(index, 1);
-    }
-    item.bulletY -= 10;
-  })
 }
 /**
  * 检查子弹是否碰撞怪物
@@ -284,6 +245,22 @@ function checkBullet(x, y) {
     }
   })
 }
+// 开火子弹运行动画
+function fire() {
+  var x = GAMEUI.planeX + 29;
+  var y = GAMEUI.planeY - 10;
+  function bulletAnimation() {
+    var ani = requestAnimationFrame(bulletAnimation);
+    // 如果子弹击中怪物、子弹超出界面或者游戏失败就清除动画
+    if(checkBullet(x, y) || !y || GAME.status === 'failed' || GAME.status === 'all-success') {
+      cancelAnimationFrame(ani);
+    }else {
+      GAMEUI.drawBullet(x, y);
+    }
+    y -= CONFIG.bulletSpeed;
+  }
+  bulletAnimation();
+}
 // 怪物运行动画
 function animate() {
   GAMEUI.clearUI();
@@ -292,27 +269,6 @@ function animate() {
     GAMEUI.scored();
     GAMEUI.drawEnemy();
     GAMEUI.drawPlane();
-  }
-}
-// 按键事件绑定
-document.onkeydown = function(event) {
-  if(GAME.status === 'playing') {
-    var code = event.keyCode;
-    if(code === 32) {
-      // 飞机开火
-      GAMEUI.bulletArr.push({
-        bulletX: GAMEUI.planeX + 29,
-        bulletY: GAMEUI.planeY - 10,
-      });
-      bulletAnimation = requestAnimationFrame(fireAnimation);
-    }
-    if(code === 37) {
-      // 飞机左动
-      GAMEUI.planeX -= CONFIG.planeSpeed;
-    }else if(code === 39) {
-      // 飞机右动
-      GAMEUI.planeX += CONFIG.planeSpeed;
-    }
   }
 }
 // 初始化
