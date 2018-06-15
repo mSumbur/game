@@ -97,7 +97,7 @@ var GAME = {
   },
   play: function() {
     GAMEUI.init();
-    enemyAnimation = requestAnimationFrame(animate);
+    animate();
     this.setStatus('playing');
   },
   failed: function() {
